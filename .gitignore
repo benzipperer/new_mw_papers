@@ -11,6 +11,7 @@ _site
 *.pdf
 *.docx
 *.epub
+index_files/
 
 # renv (just in case)
 renv/
