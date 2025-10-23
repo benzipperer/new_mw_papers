@@ -14,7 +14,3 @@ The workflow then renders a Quarto document (`index.qmd`) to an HTML file, which
 ## Setup
 
 To run this project, you will need to set up an `OPENALEX_EMAIL` secret in your repository's settings. This is required for polite access to the OpenAlex API.
-
-## Website
-
-The generated website can be found at the GitHub Pages URL for this repository.
