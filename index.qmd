@@ -3,11 +3,12 @@ title: "Recent Minimum Wage Papers"
 format:
   html:
     page-layout: full
+    link-external-newwindow: true
 execute: 
   echo: FALSE
 ---
 
-This page displays a list of recent papers on the topic of minimum wage, sourced from the OpenAlex database over the last 12 months. The data is updated daily.
+This page displays a list of recent papers on minimum wages, sourced from [OpenAlex](https://openalex.org/) over the last 12 months. The data is updated daily.
 
 ```{r}
 #| label: setup

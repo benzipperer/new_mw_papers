@@ -149,7 +149,7 @@ from_date = as.Date(to_date) - 365
 
 # Read journal ISSNs
 initial_journals = read_csv("initial_journals.csv")
-issns = initial_journals$issn
+issns = initial_journals$issn[1:10]
 
 # Fetch data from OpenAlex
 papers_from_oa = oa_fetch(
@@ -171,4 +171,9 @@ if (file.exists("min_wage_papers.csv")) {
 
 combined_papers = update_papers(new = papers_from_oa, old = existing_papers)
 
-write_csv(combined_papers, "min_wage_papers.csv")
+combined_papers |>
+  write_csv("min_wage_papers.csv")
+
+combined_papers |>
+  filter(status == "new") |>
+  write_csv("min_wage_papers_new.csv")
