@@ -149,7 +149,7 @@ from_date = as.Date(to_date) - 365
 
 # Read journal ISSNs
 initial_journals = read_csv("initial_journals.csv")
-issns = initial_journals$issn[1:10]
+issns = initial_journals$issn[1:9]
 
 # Fetch data from OpenAlex
 papers_from_oa = oa_fetch(
