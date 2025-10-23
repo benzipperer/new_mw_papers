@@ -1,0 +1,20 @@
+# R artifacts
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Quarto artifacts
+_quarto
+_site
+*.html
+*.pdf
+*.docx
+*.epub
+
+# renv (just in case)
+renv/
+renv.lock
+
+# Other
+.DS_Store

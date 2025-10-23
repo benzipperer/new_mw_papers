@@ -1,0 +1,32 @@
+---
+title: "Recent Minimum Wage Papers"
+format: html
+editor: visual
+---
+
+## Introduction
+
+This page displays a list of recent papers on the topic of minimum wage, sourced from the OpenAlex database. The data is updated daily.
+
+```{r}
+#| label: setup
+#| include: false
+packages <- c("readr", "reactable")
+for (pkg in packages) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, repos = "https://cran.rstudio.com/")
+  }
+}
+library(readr)
+library(reactable)
+```
+
+```{r}
+#| label: load-data
+min_wage_papers <- read_csv("min_wage_papers.csv")
+```
+
+```{r}
+#| label: display-table
+reactable(min_wage_papers)
+```
