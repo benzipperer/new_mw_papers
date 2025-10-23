@@ -1,0 +1,113 @@
+name: Send Email Notification
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'min_wage_papers_new.csv'
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  send-email-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main  # Ensure we get the latest commit with updated CSV
+
+      - name: Check for new papers and send email
+        run: |
+          python3 << 'PYTHON_SCRIPT'
+          import csv
+          import html
+          import sys
+
+          # Read the CSV file
+          papers = []
+          try:
+              with open('min_wage_papers_new.csv', 'r', encoding='utf-8') as f:
+                  reader = csv.DictReader(f)
+                  papers = list(reader)
+          except FileNotFoundError:
+              print("No min_wage_papers_new.csv file found.")
+              sys.exit(0)
+
+          # Check if there are any new papers
+          if len(papers) == 0:
+              print("No new papers found. Skipping email notification.")
+              sys.exit(0)
+
+          print(f"Found {len(papers)} new paper(s). Preparing email...")
+
+          # Create HTML email body
+          html_body = """<!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+              h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+              .paper { margin-bottom: 25px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3498db; }
+              .authors { color: #7f8c8d; font-style: italic; margin-bottom: 5px; }
+              .date { color: #95a5a6; font-size: 0.9em; margin-bottom: 5px; }
+              .title { font-weight: bold; font-size: 1.1em; margin: 8px 0; color: #2c3e50; }
+              .journal { color: #2980b9; margin-top: 5px; }
+              .journal a { color: #2980b9; text-decoration: none; }
+              .journal a:hover { text-decoration: underline; }
+              .count { color: #27ae60; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <h2>New Minimum Wage Papers Detected</h2>
+            <p>The following <span class="count">{count} new paper(s)</span> have been added to the database:</p>
+          """.format(count=len(papers))
+
+          # Add each paper to the HTML
+          for paper in papers:
+              title = html.escape(paper.get('title', 'N/A'))
+              authors = html.escape(paper.get('authors', 'N/A'))
+              pub_date = html.escape(paper.get('publication_date', 'N/A'))
+              journal = html.escape(paper.get('journal', 'N/A'))
+              doi = paper.get('doi', '')
+
+              html_body += f"""
+              <div class="paper">
+                <div class="authors">{authors}</div>
+                <div class="title">{title}</div>
+                <div class="date">Publication Date: {pub_date}</div>
+                <div class="journal">Journal: <a href="{doi}">{journal}</a></div>
+              </div>
+              """
+
+          html_body += """
+          </body>
+          </html>
+          """
+
+          # Write the HTML to a file
+          with open('email_body.html', 'w', encoding='utf-8') as f:
+              f.write(html_body)
+
+          # Set environment variable for the count
+          import os
+          github_env = os.getenv('GITHUB_ENV')
+          if github_env:
+              with open(github_env, 'a') as f:
+                  f.write(f"NEW_PAPERS_COUNT={len(papers)}\n")
+
+          print("Email prepared successfully.")
+          PYTHON_SCRIPT
+
+      - name: Send email via SMTP
+        if: env.NEW_PAPERS_COUNT != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "New Minimum Wage Papers: ${{ env.NEW_PAPERS_COUNT }} paper(s) added"
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          html_body: file://email_body.html
