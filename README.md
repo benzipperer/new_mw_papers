@@ -1,6 +1,6 @@
 # Minimum Wage Papers Tracker
 
-This project automatically collects bibliographic information for recent minimum wage papers from the OpenAlex API and displays them on a GitHub Pages website.
+This project automatically collects bibliographic information for recent minimum wage papers from the OpenAlex API.
 
 ## How it works
 
