@@ -1,64 +1,27 @@
-# Install and load packages
-packages <- c("openalexR", "dplyr", "readr", "purrr", "tidyr")
-for (pkg in packages) {
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg, repos = "https://cran.rstudio.com/")
-  }
-}
-
 library(openalexR)
 library(dplyr)
 library(readr)
 library(purrr)
 library(tidyr)
+library(lubridate)
 
-# Set email for polite API access
-openalex_email <- Sys.getenv("OPENALEX_EMAIL", "agent@example.com")
-options(openalexR.mailto = openalex_email)
-
-# Get today's date and the date one year ago
-to_date <- Sys.getenv("to_publication_date", Sys.Date())
-from_date <- as.Date(to_date) - 365
-
-# Read journal ISSNs
-initial_journals <- read_csv("initial_journals.csv")
-issns <- initial_journals$issn
-
-# Fetch data from OpenAlex
-min_wage_papers_df <- oa_fetch(
-  entity = "works",
-  search = "\"minimum wage\"",
-  from_publication_date = from_date,
-  to_publication_date = to_date,
-  `primary_location.source.issn` = issns,
-  output = "dataframe"
-)
-
-# Process the data
-if (!is.null(min_wage_papers_df) && nrow(min_wage_papers_df) > 0) {
-
-  processed_df <- min_wage_papers_df %>%
-    # Filter out papers with future publication dates
-    filter(publication_date <= Sys.Date()) %>%
-    mutate(
-      authors = map_chr(authorships, ~paste(.x$display_name, collapse = "; "))
-    )
-
-  # Add journal column if it doesn't exist
-  if (!"source_display_name" %in% names(processed_df)) {
-    processed_df$journal <- NA_character_
+update_papers = function(new, old) {
+  if (is.null(new) & is.null(old)) {
+    stop("PROBLEM: No data exists.")
+  } else if (is.null(new) & !is.null(old)) {
+    output = old
+  } else if (!is.null(new) & is.null(old)) {
+    output = new |>
+      mutate(
+        status = "new",
+        first_retrieved_date = Sys.Date(),
+        last_updated_date = Sys.Date()
+      )
   } else {
-    processed_df <- processed_df %>%
-      rename(journal = source_display_name)
+    output = combine_papers(new, old)
   }
 
-  # Rename id to openalex_id
-  processed_df <- processed_df %>%
-    rename(openalex_id = id)
-
-  # Finalize the dataframe
-  papers_df <- processed_df %>%
-    mutate(abstract = NA_character_) %>% # Abstract is inverted index
+  output |>
     select(
       openalex_id,
       title,
@@ -66,116 +29,146 @@ if (!is.null(min_wage_papers_df) && nrow(min_wage_papers_df) > 0) {
       publication_date,
       abstract,
       journal,
-      doi
+      doi,
+      status,
+      first_retrieved_date,
+      last_updated_date
+    ) |>
+    arrange(desc(first_retrieved_date))
+}
+
+combine_papers = function(new, old) {
+  # New papers: in new fetch but not in existing CSV
+  new_papers = new |>
+    anti_join(old, by = "openalex_id") |>
+    mutate(
+      first_retrieved_date = Sys.Date(),
+      last_updated_date = Sys.Date(),
+      status = "new"
     )
 
-  # Read existing data
-  if (file.exists("min_wage_papers.csv")) {
-    existing_papers <- read_csv("min_wage_papers.csv", show_col_types = FALSE) %>%
-      mutate(
-        openalex_id = as.character(openalex_id),
-        publication_date = as.Date(publication_date, format = "%Y-%m-%d", na.rm = TRUE),
-        first_retrieved_date = as.POSIXct(first_retrieved_date, na.rm = TRUE),
-        last_updated_date = as.POSIXct(last_updated_date, na.rm = TRUE),
-        abstract = as.character(abstract)
-      )
+  # Old papers: in existing CSV but not in new fetch
+  old_papers = old |>
+    anti_join(new, by = "openalex_id") |>
+    mutate(status = "old")
+
+  # Common papers that may or may not have been updated
+  common_papers = create_common_papers(new, old)
+
+  bind_rows(
+    new_papers,
+    old_papers,
+    common_papers
+  )
+}
+
+create_common_papers = function(new, old) {
+  # Common papers: in both new fetch and existing CSV. Need to check for actual updates.
+  common_ids <- intersect(
+    new$openalex_id,
+    old$openalex_id
+  )
+
+  if (length(common_ids) == 0) {
+    common_papers = NULL
   } else {
-    existing_papers <- tibble()
-  }
+    # Get the newly fetched versions of common papers
+    common_new = new |>
+      filter(openalex_id %in% common_ids)
 
-  # Get current datetime
-  current_datetime <- Sys.time()
+    # Get the old versions of common papers
+    common_old = old |>
+      filter(openalex_id %in% common_ids)
 
-  if (nrow(existing_papers) > 0) {
-    # 1. New papers: in new fetch but not in existing CSV
-    new_papers <- papers_df %>%
-      anti_join(existing_papers, by = "openalex_id") %>%
+    # For comparison, select only the columns present in the new fetch
+    common_old_comparable = common_old |>
+      select(any_of(names(common_new)))
+
+    # IDs of actually updated papers (where any data has changed)
+    updated_ids = anti_join(
+      common_new |> arrange(openalex_id),
+      common_old_comparable |> arrange(openalex_id)
+    ) |>
+      pull(openalex_id)
+
+    # Papers that were actually updated
+    updated_papers = common_new |>
+      filter(openalex_id %in% updated_ids) |>
+      # Re-attach the original first_retrieved_date
+      inner_join(
+        common_old |> select(openalex_id, first_retrieved_date),
+        by = "openalex_id"
+      ) |>
       mutate(
-        first_retrieved_date = current_datetime,
-        last_updated_date = current_datetime,
-        status = "new"
+        last_updated_date = Sys.time(),
+        status = "updated"
       )
 
-    # 2. Old papers: in existing CSV but not in new fetch
-    old_papers <- existing_papers %>%
-      anti_join(papers_df, by = "openalex_id") %>%
+    # Papers that were re-fetched but had no changes
+    unchanged_papers = common_old |>
+      filter(!openalex_id %in% updated_ids) |>
       mutate(status = "old")
 
-    # 3. Common papers: in both new fetch and existing CSV. Need to check for actual updates.
-    common_ids <- intersect(papers_df$openalex_id, existing_papers$openalex_id)
-
-    if (length(common_ids) > 0) {
-        # Get the newly fetched versions of common papers
-        common_new <- papers_df %>%
-          filter(openalex_id %in% common_ids)
-
-        # Get the old versions of common papers
-        common_old <- existing_papers %>%
-          filter(openalex_id %in% common_ids)
-
-        # For comparison, select only the columns present in the new fetch
-        common_old_comparable <- common_old %>%
-          select(any_of(names(common_new)))
-
-        # Use anti_join to find the IDs of papers where data has changed
-        updated_ids <- anti_join(
-            common_new %>% arrange(openalex_id),
-            common_old_comparable %>% arrange(openalex_id)
-          ) %>%
-          pull(openalex_id)
-
-        # 3a. Papers that were actually updated
-        updated_papers <- common_new %>%
-          filter(openalex_id %in% updated_ids) %>%
-          # Re-attach the original first_retrieved_date
-          inner_join(common_old %>% select(openalex_id, first_retrieved_date), by = "openalex_id") %>%
-          mutate(
-            last_updated_date = current_datetime,
-            status = "updated"
-          )
-
-        # 3b. Papers that were re-fetched but had no changes
-        unchanged_papers <- common_old %>%
-          filter(!openalex_id %in% updated_ids) %>%
-          mutate(status = "old") # Keep status as old
-
-        # Combine all the pieces
-        combined_papers <- bind_rows(new_papers, old_papers, updated_papers, unchanged_papers)
-    } else {
-        # No common papers, just combine new and old
-        combined_papers <- bind_rows(new_papers, old_papers)
-    }
-
-  } else {
-    # This is the case for the very first run
-    combined_papers <- papers_df %>%
-      mutate(
-        first_retrieved_date = current_datetime,
-        last_updated_date = current_datetime,
-        status = "new"
-      )
+    common_papers = bind_rows(updated_papers, unchanged_papers)
   }
 
-  # Sort the data
-  combined_papers <- combined_papers %>%
-    mutate(status = factor(status, levels = c("new", "updated", "old"))) %>%
-    arrange(status, desc(publication_date))
-
-  # Write to CSV
-  write_csv(combined_papers, "min_wage_papers.csv")
-} else {
-  # Create an empty CSV if no papers are found
-  tibble(
-    openalex_id = character(),
-    title = character(),
-    authors = character(),
-    publication_date = character(),
-    abstract = character(),
-    journal = character(),
-    doi = character(),
-    first_retrieved_date = character(),
-    last_updated_date = character(),
-    status = character()
-  ) %>%
-    write_csv("min_wage_papers.csv")
+  common_papers
 }
+
+clean_oa_papers = function(data) {
+  if (is.null(data)) {
+    NULL
+  } else {
+    data |>
+      mutate(
+        authors = map_chr(
+          authorships,
+          ~ paste(.x$display_name, collapse = "; ")
+        )
+      ) |>
+      select(
+        openalex_id = id,
+        authors,
+        publication_date,
+        title,
+        journal = source_display_name,
+        doi,
+        abstract
+      )
+  }
+}
+
+
+# Set email for polite API access
+openalex_email = Sys.getenv("openalexR.mailto", "agent@example.com")
+options(openalexR.mailto = openalex_email)
+
+# Get today's date and the date one year ago
+to_date = Sys.getenv("to_publication_date", Sys.Date())
+from_date = as.Date(to_date) - 365
+
+# Read journal ISSNs
+initial_journals = read_csv("initial_journals.csv")
+issns = initial_journals$issn
+
+# Fetch data from OpenAlex
+papers_from_oa = oa_fetch(
+  entity = "works",
+  search = "\"minimum wage\"",
+  #search = "\"blah tiddly blah\"",
+  from_publication_date = from_date,
+  to_publication_date = to_date,
+  primary_location.source.issn = issns,
+  output = "dataframe"
+) |>
+  clean_oa_papers()
+
+# Existing data
+existing_papers = NULL
+if (file.exists("min_wage_papers.csv")) {
+  existing_papers = read_csv("min_wage_papers.csv", show_col_types = FALSE)
+}
+
+combined_papers = update_papers(new = papers_from_oa, old = existing_papers)
+
+write_csv(combined_papers, "min_wage_papers.csv")

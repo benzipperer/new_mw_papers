@@ -1,39 +1,36 @@
 ---
 title: "Recent Minimum Wage Papers"
-format: html
-editor: visual
+format:
+  html:
+    page-layout: full
+execute: 
+  echo: FALSE
 ---
 
-## Introduction
-
-This page displays a list of recent papers on the topic of minimum wage, sourced from the OpenAlex database. The data is updated daily.
+This page displays a list of recent papers on the topic of minimum wage, sourced from the OpenAlex database over the last 12 months. The data is updated daily.
 
 ```{r}
 #| label: setup
 #| include: false
-packages <- c("readr", "reactable", "devtools")
-for (pkg in packages) {
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg, repos = "https://cran.rstudio.com/")
-  }
-}
-if (!require("bibfix", character.only = TRUE)) {
-  devtools::install_github("nealhaddaway/bibfix")
-}
 library(readr)
 library(reactable)
-library(bibfix)
-```
+library(dplyr)
+library(htmltools)
 
-```{r}
-#| label: load-data
-min_wage_papers <- read_csv("min_wage_papers.csv")
+min_wage_papers = read_csv("min_wage_papers.csv") |> 
+  arrange(desc(publication_date)) |> 
+  mutate(publication_date = format(publication_date, "%B %Y")) |> 
+  filter(first_retrieved_date >= Sys.Date() - 365)
+
+main_rows = min_wage_papers |> 
+  select(authors, publication_date, journal, title)
+
 ```
 
 ```{r}
 #| label: display-table
 reactable(
-  min_wage_papers,
+  main_rows,
   columns = list(
     authors = colDef(name = "Authors", cell = function(value) {
       sapply(strsplit(value, "; "), function(authors) {
@@ -43,32 +40,16 @@ reactable(
         }), collapse = ", ")
       })
     }),
-    publication_date = colDef(name = "Date"),
-    journal = colDef(name = "Journal"),
+    publication_date = colDef(name = "Publication date"),
+    journal = colDef(
+      name = "Journal",
+      cell = function(value, index) {
+        work_url = min_wage_papers$doi[index]
+        tags$a(class = "journal-name", href = work_url, target = "_blank", value)
+      }
+    ),
     title = colDef(name = "Title")
   ),
-  details = function(index) {
-    data <- min_wage_papers[index, ]
-    # The abstract is a named list, so we need to extract the text
-    abstract_text <- "No abstract available"
-    if (!is.na(data$abstract) && nchar(data$abstract) > 2) { #check for more than empty list '()'
-      tryCatch({
-        inverted_index <- eval(parse(text = data$abstract))
-        if (is.list(inverted_index) && length(inverted_index) > 0) {
-          abstract_text <- bibfix::reconstruct_abstract(inverted_index)
-        }
-      }, error = function(e) {
-        abstract_text <- "Error parsing abstract."
-      })
-    }
-    htmltools::div(
-      class = "paper-details",
-      htmltools::strong("Full Authors:"), data$authors,
-      htmltools::br(),
-      htmltools::strong("Journal:"), htmltools::a(href = data$doi, target = "_blank", data$journal),
-      htmltools::br(),
-      htmltools::strong("Abstract:"), abstract_text
-    )
-  }
+  pagination = F
 )
 ```
