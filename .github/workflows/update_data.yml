@@ -2,7 +2,7 @@ name: Update Minimum Wage Papers Data
 
 on:
   schedule:
-    - cron: '50 3 * * *' # Runs daily at 1 am
+    - cron: '30 5 * * *' 
   workflow_dispatch: # Allows manual triggering
 
 jobs:
