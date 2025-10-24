@@ -2,7 +2,7 @@ name: Send Email Notification
 
 on:
   schedule:
-    - cron: '0 0 * * 1' # Runs weekly on Mondays at midnight UTC
+    - cron: '0 2 * * 1' # Runs weekly on Mondays at 2 am
   workflow_dispatch: # Allows manual triggering
 
 jobs:
@@ -36,7 +36,12 @@ jobs:
               print("No new papers found. Skipping email notification.")
               sys.exit(0)
 
-          print(f"Found {len(papers)} new paper(s). Preparing email...")
+          # Determine singular/plural forms
+          paper_count = len(papers)
+          paper_word = "paper" if paper_count == 1 else "papers"
+          have_word = "has" if paper_count == 1 else "have"
+
+          print(f"Found {paper_count} new {paper_word}. Preparing email...")
 
           # Create HTML email body
           html_body = """<!DOCTYPE html>
@@ -57,8 +62,9 @@ jobs:
           </head>
           <body>
             <h2>New Minimum Wage Papers Detected</h2>
-            <p>The following <span class="count">{count} new paper(s)</span> have been added to the database:</p>
-          """.format(count=len(papers))
+            <p>The following <span class="count">{count} new {paper_word}</span> {have_word} been added to the list of
+            <a href="https://benzipperer.github.io/new_mw_papers/">Recent Minimum Wage Papers</a>:</p>
+          """.format(count=paper_count, paper_word=paper_word, have_word=have_word)
 
           # Add each paper to the HTML
           for paper in papers:
@@ -73,7 +79,7 @@ jobs:
                 <div class="authors">{authors}</div>
                 <div class="title">{title}</div>
                 <div class="date">Publication Date: {pub_date}</div>
-                <div class="journal">Journal: <a href="{doi}">{journal}</a></div>
+                <div class="journal"><a href="{doi}">{journal}</a></div>
               </div>
               """
 
@@ -86,12 +92,16 @@ jobs:
           with open('email_body.html', 'w', encoding='utf-8') as f:
               f.write(html_body)
 
-          # Set environment variable for the count
+          # Set environment variables for the count and plural form
           import os
           github_env = os.getenv('GITHUB_ENV')
           if github_env:
+              paper_word = "paper" if len(papers) == 1 else "papers"
+              have_word = "has" if len(papers) == 1 else "have"
               with open(github_env, 'a') as f:
                   f.write(f"NEW_PAPERS_COUNT={len(papers)}\n")
+                  f.write(f"PAPER_WORD={paper_word}\n")
+                  f.write(f"HAVE_WORD={have_word}\n")
 
           print("Email prepared successfully.")
           PYTHON_SCRIPT
@@ -104,7 +114,7 @@ jobs:
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "New Minimum Wage Papers: ${{ env.NEW_PAPERS_COUNT }} paper(s) added"
+          subject: "New Minimum Wage Papers: ${{ env.NEW_PAPERS_COUNT }} ${{ env.PAPER_WORD }} added"
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
           html_body: file://email_body.html
