@@ -34,6 +34,7 @@ update_papers = function(new, old) {
       first_retrieved_date,
       last_updated_date
     ) |>
+    filter(first_retrieved_date >= Sys.Date() - 365) |>
     arrange(desc(first_retrieved_date))
 }
 
@@ -144,18 +145,23 @@ openalex_email = Sys.getenv("openalexR.mailto", "agent@example.com")
 options(openalexR.mailto = openalex_email)
 
 # Get today's date and the date one year ago
-to_date = Sys.getenv("to_publication_date", Sys.Date())
+to_date = Sys.Date()
 from_date = as.Date(to_date) - 365
 
 # Read journal ISSNs
 initial_journals = read_csv("initial_journals.csv")
-issns = initial_journals$issn[1:9]
+issns = initial_journals$issn
+
+mw_query = '"minimum wage" OR "minimum wages" OR "minimum wage\'s"'
+lw_query = '"living wage" OR "living wages" OR "living wage\'s"'
+tw_query = '"tipped wage" OR "tipped wages" OR "tipped wage\'s"'
+
+search_query = paste(mw_query, lw_query, tw_query, sep = " OR ")
 
 # Fetch data from OpenAlex
 papers_from_oa = oa_fetch(
   entity = "works",
-  search = "\"minimum wage\"",
-  #search = "\"blah tiddly blah\"",
+  search = search_query,
   from_publication_date = from_date,
   to_publication_date = to_date,
   primary_location.source.issn = issns,
