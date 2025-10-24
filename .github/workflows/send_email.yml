@@ -43,16 +43,16 @@ jobs:
           <html>
           <head>
             <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
-              h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-              .paper { margin-bottom: 25px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3498db; }
-              .authors { color: #7f8c8d; font-style: italic; margin-bottom: 5px; }
-              .date { color: #95a5a6; font-size: 0.9em; margin-bottom: 5px; }
-              .title { font-weight: bold; font-size: 1.1em; margin: 8px 0; color: #2c3e50; }
-              .journal { color: #2980b9; margin-top: 5px; }
-              .journal a { color: #2980b9; text-decoration: none; }
-              .journal a:hover { text-decoration: underline; }
-              .count { color: #27ae60; font-weight: bold; }
+              body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }}
+              h2 {{ color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
+              .paper {{ margin-bottom: 25px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3498db; }}
+              .authors {{ color: #7f8c8d; font-style: italic; margin-bottom: 5px; }}
+              .date {{ color: #95a5a6; font-size: 0.9em; margin-bottom: 5px; }}
+              .title {{ font-weight: bold; font-size: 1.1em; margin: 8px 0; color: #2c3e50; }}
+              .journal {{ color: #2980b9; margin-top: 5px; }}
+              .journal a {{ color: #2980b9; text-decoration: none; }}
+              .journal a:hover {{ text-decoration: underline; }}
+              .count {{ color: #27ae60; font-weight: bold; }}
             </style>
           </head>
           <body>
