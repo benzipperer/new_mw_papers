@@ -1,11 +1,8 @@
 name: Send Email Notification
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'min_wage_papers_new.csv'
+  schedule:
+    - cron: '0 0 * * 1' # Runs weekly on Mondays at midnight UTC
   workflow_dispatch: # Allows manual triggering
 
 jobs:
