@@ -180,6 +180,21 @@ combined_papers = update_papers(new = papers_from_oa, old = existing_papers)
 combined_papers |>
   write_csv("min_wage_papers.csv")
 
-combined_papers |>
-  filter(status == "new") |>
-  write_csv("min_wage_papers_new.csv")
+# Read list of already-emailed papers
+emailed_papers = NULL
+if (file.exists("emailed_papers.csv")) {
+  emailed_papers = read_csv("emailed_papers.csv", show_col_types = FALSE)
+}
+
+# Find papers that are new AND haven't been emailed yet
+truly_new_papers = combined_papers |>
+  filter(status == "new")
+
+if (is.null(emailed_papers) || nrow(emailed_papers) == 0) {
+  truly_new_papers |>
+    write_csv("min_wage_papers_to_email.csv")
+} else {
+  truly_new_papers |>
+    anti_join(emailed_papers, by = "openalex_id") |>
+    write_csv("min_wage_papers_to_email.csv")
+}

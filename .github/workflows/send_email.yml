@@ -2,7 +2,7 @@ name: Send Email Notification
 
 on:
   schedule:
-    - cron: '30 6 * * *' 
+    - cron: '30 9 * * 5' 
   workflow_dispatch: # Allows manual triggering
 
 jobs:
@@ -13,109 +13,36 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main  # Ensure we get the latest commit with updated CSV
+          persist-credentials: false
 
-      - name: Check for new papers and send email
-        run: |
-          python3 << 'PYTHON_SCRIPT'
-          import csv
-          import html
-          import sys
-
-          # Read the CSV file
-          papers = []
-          try:
-              with open('min_wage_papers_new.csv', 'r', encoding='utf-8') as f:
-                  reader = csv.DictReader(f)
-                  papers = list(reader)
-          except FileNotFoundError:
-              print("No min_wage_papers_new.csv file found.")
-              sys.exit(0)
-
-          # Check if there are any new papers
-          if len(papers) == 0:
-              print("No new papers found. Skipping email notification.")
-              sys.exit(0)
-
-          # Determine singular/plural forms
-          paper_count = len(papers)
-          paper_word = "paper" if paper_count == 1 else "papers"
-          have_word = "has" if paper_count == 1 else "have"
-
-          print(f"Found {paper_count} new {paper_word}. Preparing email...")
-
-          # Create HTML email body
-          html_body = """<!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }}
-              h2 {{ color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
-              .paper {{ margin-bottom: 25px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3498db; }}
-              .authors {{ color: #7f8c8d; font-style: italic; margin-bottom: 5px; }}
-              .date {{ color: #95a5a6; font-size: 0.9em; margin-bottom: 5px; }}
-              .title {{ font-weight: bold; font-size: 1.1em; margin: 8px 0; color: #2c3e50; }}
-              .journal {{ color: #2980b9; margin-top: 5px; }}
-              .journal a {{ color: #2980b9; text-decoration: none; }}
-              .journal a:hover {{ text-decoration: underline; }}
-              .count {{ color: #27ae60; font-weight: bold; }}
-            </style>
-          </head>
-          <body>
-            <h2>New Minimum Wage Papers Detected</h2>
-            <p>The following <span class="count">{count} new {paper_word}</span> {have_word} been added to the list of
-            <a href="https://benzipperer.github.io/new_mw_papers/">Recent Minimum Wage Papers</a>:</p>
-          """.format(count=paper_count, paper_word=paper_word, have_word=have_word)
-
-          # Add each paper to the HTML
-          for paper in papers:
-              title = html.escape(paper.get('title', 'N/A'))
-              authors = html.escape(paper.get('authors', 'N/A'))
-              pub_date = html.escape(paper.get('publication_date', 'N/A'))
-              journal = html.escape(paper.get('journal', 'N/A'))
-              doi = paper.get('doi', '')
-
-              html_body += f"""
-              <div class="paper">
-                <div class="authors">{authors}</div>
-                <div class="title">{title}</div>
-                <div class="date">Publication Date: {pub_date}</div>
-                <div class="journal"><a href="{doi}">{journal}</a></div>
-              </div>
-              """
-
-          html_body += """
-          </body>
-          </html>
-          """
-
-          # Write the HTML to a file
-          with open('email_body.html', 'w', encoding='utf-8') as f:
-              f.write(html_body)
-
-          # Set environment variables for the count and plural form
-          import os
-          github_env = os.getenv('GITHUB_ENV')
-          if github_env:
-              paper_word = "paper" if len(papers) == 1 else "papers"
-              have_word = "has" if len(papers) == 1 else "have"
-              with open(github_env, 'a') as f:
-                  f.write(f"NEW_PAPERS_COUNT={len(papers)}\n")
-                  f.write(f"PAPER_WORD={paper_word}\n")
-                  f.write(f"HAVE_WORD={have_word}\n")
-
-          print("Email prepared successfully.")
-          PYTHON_SCRIPT
-
-      - name: Send email via SMTP
-        if: env.NEW_PAPERS_COUNT != ''
-        uses: dawidd6/action-send-mail@v3
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
         with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "New Minimum Wage Papers: ${{ env.NEW_PAPERS_COUNT }} ${{ env.PAPER_WORD }} added"
-          to: ${{ secrets.EMAIL_FROM }}
-          bcc: ${{ secrets.EMAIL_TO }}
-          from: ${{ secrets.EMAIL_FROM }}
-          html_body: file://email_body.html
+          r-version: '4.3.3'
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+
+      - name: Send email notification
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: Rscript send_email.R
+
+      - name: Commit updated emailed papers list
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add emailed_papers.csv
+          git commit -m "Update emailed papers list after sending notification" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.PAT_GITHUB }}
