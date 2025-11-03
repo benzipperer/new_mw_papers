@@ -105,10 +105,9 @@ create_common_papers = function(new, old) {
         status = "updated"
       )
 
-    # Papers that were re-fetched but had no changes
+    # Papers that were re-fetched but had no changes - preserve their status
     unchanged_papers = common_old |>
-      filter(!openalex_id %in% updated_ids) |>
-      mutate(status = "old")
+      filter(!openalex_id %in% updated_ids)
 
     common_papers = bind_rows(updated_papers, unchanged_papers)
   }
