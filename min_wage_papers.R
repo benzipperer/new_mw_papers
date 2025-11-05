@@ -4,6 +4,7 @@ library(readr)
 library(purrr)
 library(tidyr)
 library(lubridate)
+library(stringr)
 
 update_papers = function(new, old) {
   if (is.null(new) & is.null(old)) {
@@ -138,6 +139,64 @@ clean_oa_papers = function(data) {
   }
 }
 
+download_nber = function(name) {
+  base_url = "https://data.nber.org/nber_paper_chapter_metadata/tsv/"
+  file_name = paste0(name, ".tsv")
+  url = paste0(base_url, file_name)
+  temp = tempfile()
+
+  download.file(url, temp)
+
+  data = read_delim(
+    temp,
+    delim = "\t",
+    quote = rawToChar(as.raw(0xAC))
+  )
+
+  unlink(temp)
+
+  data |>
+    filter(str_starts(paper, "w"))
+}
+
+
+nber_fetch = function(
+  from_publication_date,
+  to_publication_date,
+  search_query
+) {
+  ref = download_nber("ref")
+  abs = download_nber("abs")
+
+  data = full_join(ref, abs) |>
+    mutate(
+      authors = str_replace_all(author, ",", ";"),
+      journal = "NBER Working Paper",
+      doi = paste0("https://nber.org/papers/", paper),
+      publication_date = issue_date,
+      # deal with openalex vs NBER ids at some point
+      # for now this is fine
+      openalex_id = paper,
+      abstract_match = str_detect(str_to_lower(abstract), nber_search_query),
+      title_match = str_detect(str_to_lower(title), nber_search_query)
+    ) |>
+    filter(
+      publication_date >= ymd(from_publication_date),
+      publication_date <= ymd(to_publication_date),
+      abstract_match == 1 | title_match == 1
+    ) |>
+    select(
+      openalex_id,
+      authors,
+      publication_date,
+      title,
+      journal,
+      doi,
+      abstract
+    )
+
+  data
+}
 
 # Set email for polite API access
 openalex_email = Sys.getenv("openalexR.mailto", "agent@example.com")
@@ -168,13 +227,27 @@ papers_from_oa = oa_fetch(
 ) |>
   clean_oa_papers()
 
+nber_search_query = "minimum wage|living wage|tipped_wage"
+to_date = Sys.Date()
+from_date = as.Date(to_date) - 365
+
+papers_from_nber = nber_fetch(
+  from_date,
+  to_date,
+  nber_search_query
+)
+
+all_papers = papers_from_oa |>
+  bind_rows(papers_from_nber)
+
+
 # Existing data
 existing_papers = NULL
 if (file.exists("min_wage_papers.csv")) {
   existing_papers = read_csv("min_wage_papers.csv", show_col_types = FALSE)
 }
 
-combined_papers = update_papers(new = papers_from_oa, old = existing_papers)
+combined_papers = update_papers(new = all_papers, old = existing_papers)
 
 combined_papers |>
   write_csv("min_wage_papers.csv")
