@@ -37,30 +37,41 @@ reactable(
     authors = colDef(
       name = "Authors",
       minWidth = 180,
+      html = TRUE,
       cell = function(value) {
-        sapply(strsplit(value, "; "), function(authors) {
+        formatted_names = sapply(strsplit(value, "; "), function(authors) {
           paste(sapply(authors, function(author) {
             name_parts <- strsplit(author, " ")[[1]]
             name_parts[length(name_parts)]
           }), collapse = ", ")
         })
+        sprintf('<div data-label="Authors">%s</div>', formatted_names)
       }
     ),
     publication_date = colDef(
       name = "Publication date",
-      minWidth = 150
+      minWidth = 150,
+      html = TRUE,
+      cell = function(value) {
+        sprintf('<div data-label="Publication Date">%s</div>', value)
+      }
     ),
     journal = colDef(
       name = "Journal",
       minWidth = 200,
+      html = TRUE,
       cell = function(value, index) {
         work_url = min_wage_papers$doi[index]
-        tags$a(class = "journal-name", href = work_url, target = "_blank", value)
+        sprintf('<div data-label="Journal"><a class="journal-name" href="%s" target="_blank">%s</a></div>', work_url, value)
       }
     ),
     title = colDef(
       name = "Title",
-      minWidth = 300
+      minWidth = 300,
+      html = TRUE,
+      cell = function(value) {
+        sprintf('<div data-label="Title">%s</div>', value)
+      }
     )
   ),
   pagination = FALSE,

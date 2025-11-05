@@ -112,3 +112,133 @@ h1.title {
   margin: 0 auto;
   padding: 2rem;
 }
+
+/* Mobile Card Layout */
+@media (max-width: 768px) {
+  /* Ensure body and html don't allow horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Hide the table header on mobile */
+  .reactable .rt-thead {
+    display: none;
+  }
+
+  /* Make table, tbody, and rows block-level */
+  .reactable table,
+  .reactable .rt-tbody,
+  .reactable .rt-tr {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Ensure reactable doesn't overflow */
+  .reactable {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box;
+  }
+
+  .reactable table {
+    table-layout: fixed;
+    margin: 0;
+  }
+
+  /* Style each row as a card */
+  .reactable .rt-tr {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--table-bg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .reactable .rt-tr:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  /* Remove striped background on mobile */
+  .reactable .rt-tbody .rt-tr:nth-child(even) {
+    background-color: var(--table-bg);
+  }
+
+  /* Make cells block-level and stack vertically */
+  .reactable .rt-td {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 12px 16px;
+    border-top: none;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: left;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* Ensure content inside cells also wraps */
+  .reactable .rt-td > * {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  .reactable .rt-td:last-child {
+    border-bottom: none;
+  }
+
+  /* Add labels before each cell content */
+  .reactable .rt-td [data-label]:before {
+    content: attr(data-label);
+    display: block;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+  }
+
+  /* Style for title cell */
+  .reactable .rt-td:nth-child(4) {
+    font-size: 14px;
+  }
+
+  /* Adjust padding for content container on mobile */
+  #quarto-content {
+    padding: 1rem;
+  }
+
+  /* Adjust reactable container margin */
+  .reactable-container {
+    margin: 1rem 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Remove table border and shadow since cards have their own */
+  .reactable {
+    border: none;
+    box-shadow: none;
+    background-color: transparent;
+  }
+
+  /* Ensure all container elements respect width */
+  #quarto-content > *,
+  .quarto-title-block,
+  main {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+}
