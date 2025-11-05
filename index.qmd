@@ -4,11 +4,12 @@ format:
   html:
     page-layout: full
     link-external-newwindow: true
-execute: 
+    css: styles.css
+execute:
   echo: FALSE
 ---
 
-This page displays a list of recent papers on minimum wages, sourced from [OpenAlex](https://openalex.org/) over the last 12 months. The data is updated daily.
+This page displays a list of recent papers mentioning minimum wages, sourced from [OpenAlex](https://openalex.org/) and [NBER](https://nber.org) over the last 12 months.
 
 ```{r}
 #| label: setup
@@ -33,24 +34,41 @@ main_rows = min_wage_papers |>
 reactable(
   main_rows,
   columns = list(
-    authors = colDef(name = "Authors", cell = function(value) {
-      sapply(strsplit(value, "; "), function(authors) {
-        paste(sapply(authors, function(author) {
-          name_parts <- strsplit(author, " ")[[1]]
-          name_parts[length(name_parts)]
-        }), collapse = ", ")
-      })
-    }),
-    publication_date = colDef(name = "Publication date"),
+    authors = colDef(
+      name = "Authors",
+      minWidth = 180,
+      cell = function(value) {
+        sapply(strsplit(value, "; "), function(authors) {
+          paste(sapply(authors, function(author) {
+            name_parts <- strsplit(author, " ")[[1]]
+            name_parts[length(name_parts)]
+          }), collapse = ", ")
+        })
+      }
+    ),
+    publication_date = colDef(
+      name = "Publication date",
+      minWidth = 150
+    ),
     journal = colDef(
       name = "Journal",
+      minWidth = 200,
       cell = function(value, index) {
         work_url = min_wage_papers$doi[index]
         tags$a(class = "journal-name", href = work_url, target = "_blank", value)
       }
     ),
-    title = colDef(name = "Title")
+    title = colDef(
+      name = "Title",
+      minWidth = 300
+    )
   ),
-  pagination = F
+  pagination = FALSE,
+  highlight = TRUE,
+  borderless = TRUE,
+  striped = TRUE,
+  defaultPageSize = 100,
+  showPageSizeOptions = FALSE,
+  class = "reactable-container"
 )
 ```
