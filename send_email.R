@@ -9,7 +9,8 @@ if (!file.exists('min_wage_papers_to_email.csv')) {
   quit(status = 0)
 }
 
-papers <- read_csv('min_wage_papers_to_email.csv', show_col_types = FALSE)
+papers <- read_csv('min_wage_papers_to_email.csv', show_col_types = FALSE) |>
+  arrange(desc(publication_date))
 
 # Check if there are any new papers
 if (nrow(papers) == 0) {
@@ -41,20 +42,23 @@ paper_html <- papers %>%
     journal = gsub(">", "&gt;", journal),
     journal = gsub('"', "&quot;", journal),
     # Create HTML for each paper
-    html = glue('
+    html = glue(
+      '
     <div class="paper">
       <div class="authors">{authors}</div>
       <div class="title">{title}</div>
       <div class="date">Publication Date: {publication_date}</div>
       <div class="journal"><a href="{doi}">{journal}</a></div>
     </div>
-    ')
+    '
+    )
   ) %>%
   pull(html) %>%
   paste(collapse = "\n")
 
 # Create full HTML email body
-html_body <- glue('
+html_body <- glue(
+  '
 <!DOCTYPE html>
 <html>
 <head>
@@ -78,7 +82,8 @@ html_body <- glue('
   {paper_html}
 </body>
 </html>
-')
+'
+)
 
 # Get SMTP credentials from environment variables
 smtp_server <- Sys.getenv("SMTP_SERVER")
@@ -89,7 +94,13 @@ email_from <- Sys.getenv("EMAIL_FROM")
 email_to <- Sys.getenv("EMAIL_TO")
 
 # Validate environment variables
-if (smtp_server == "" || smtp_username == "" || smtp_password == "" || email_from == "" || email_to == "") {
+if (
+  smtp_server == "" ||
+    smtp_username == "" ||
+    smtp_password == "" ||
+    email_from == "" ||
+    email_to == ""
+) {
   stop("Missing required environment variables for email configuration")
 }
 
@@ -106,19 +117,24 @@ smtp_creds <- creds(
 )
 
 # Send email
-tryCatch({
-  smtp_send(
-    email,
-    from = email_from,
-    to = email_to,
-    subject = glue("New Minimum Wage Papers: {paper_count} {paper_word} added"),
-    credentials = smtp_creds
-  )
-  cat("Email sent successfully.\n")
-}, error = function(e) {
-  cat("Error sending email:", conditionMessage(e), "\n")
-  quit(status = 1)
-})
+tryCatch(
+  {
+    smtp_send(
+      email,
+      from = email_from,
+      to = email_to,
+      subject = glue(
+        "New Minimum Wage Papers: {paper_count} {paper_word} added"
+      ),
+      credentials = smtp_creds
+    )
+    cat("Email sent successfully.\n")
+  },
+  error = function(e) {
+    cat("Error sending email:", conditionMessage(e), "\n")
+    quit(status = 1)
+  }
+)
 
 # Update emailed papers list
 emailed_papers <- data.frame(openalex_id = character(0))
