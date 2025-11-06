@@ -57,12 +57,12 @@ reactable(
       }
     ),
     journal = colDef(
-      name = "Journal",
+      name = "Source",
       minWidth = 200,
       html = TRUE,
       cell = function(value, index) {
         work_url = min_wage_papers$doi[index]
-        sprintf('<div data-label="Journal"><a class="journal-name" href="%s" target="_blank">%s</a></div>', work_url, value)
+        sprintf('<div data-label="Source"><a class="journal-name" href="%s" target="_blank">%s</a></div>', work_url, value)
       }
     ),
     title = colDef(
