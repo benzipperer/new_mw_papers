@@ -2,8 +2,10 @@ name: Deploy Website
 
 on:
   push:
+    branches:
+      - main
     paths:
-      - 'min_wage_papers.csv' 
+      - 'min_wage_papers.csv'
       - 'index.qmd'
   workflow_dispatch: # Allows manual triggering
 
