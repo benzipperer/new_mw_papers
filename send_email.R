@@ -88,15 +88,20 @@ html_body <- glue(
 # Get email configuration from environment variables
 email_from <- Sys.getenv("EMAIL_FROM")
 email_to <- Sys.getenv("EMAIL_TO")
-email_bcc <- Sys.getenv("EMAIL_BCC")  # Optional BCC recipients (comma-separated)
+email_bcc <- Sys.getenv("EMAIL_BCC") # Optional BCC recipients (comma-separated)
 smtp_server <- Sys.getenv("SMTP_SERVER")
 smtp_port <- as.integer(Sys.getenv("SMTP_PORT"))
 smtp_username <- Sys.getenv("SMTP_USERNAME")
 smtp_password <- Sys.getenv("SMTP_PASSWORD")
 
 # Validate required environment variables
-if (smtp_server == "" || smtp_username == "" || smtp_password == "" ||
-    email_from == "" || email_to == "") {
+if (
+  smtp_server == "" ||
+    smtp_username == "" ||
+    smtp_password == "" ||
+    email_from == "" ||
+    email_to == ""
+) {
   stop("Missing required environment variables for email configuration")
 }
 
@@ -115,12 +120,17 @@ tryCatch(
     email <- envelope() %>%
       from(email_from) %>%
       to(email_to) %>%
-      subject(glue("New Minimum Wage Papers: {paper_count} {paper_word} added")) %>%
+      subject(glue(
+        "New Minimum Wage Papers: {paper_count} {paper_word} added"
+      )) %>%
       html(html_body)
 
     # Add BCC if specified
     if (email_bcc != "") {
       email <- email %>% bcc(email_bcc)
+      message("BCC is present")
+    } else {
+      stop("No BCC present")
     }
 
     # Send email
