@@ -85,19 +85,15 @@ html_body <- glue(
 '
 )
 
-# Get SMTP credentials from environment variables
-smtp_server <- Sys.getenv("SMTP_SERVER")
-smtp_port <- as.integer(Sys.getenv("SMTP_PORT"))
-smtp_username <- Sys.getenv("SMTP_USERNAME")
-smtp_password <- Sys.getenv("SMTP_PASSWORD")
+# Get email addresses from environment variables
 email_from <- Sys.getenv("EMAIL_FROM")
 email_to <- Sys.getenv("EMAIL_TO")
 
-# Validate environment variables
+# Validate required environment variables
 if (
-  smtp_server == "" ||
-    smtp_username == "" ||
-    smtp_password == "" ||
+  Sys.getenv("SMTP_SERVER") == "" ||
+    Sys.getenv("SMTP_USERNAME") == "" ||
+    Sys.getenv("SMTP_PASSWORD") == "" ||
     email_from == "" ||
     email_to == ""
 ) {
@@ -107,7 +103,7 @@ if (
 # Create email
 email <- compose_email(body = md(html_body))
 
-# Configure SMTP credentials
+# Configure SMTP credentials using environment variables
 smtp_creds <- creds_envvar(
   user = Sys.getenv("SMTP_USERNAME"),
   pass_envvar = "SMTP_PASSWORD",  # Pass variable name as string
