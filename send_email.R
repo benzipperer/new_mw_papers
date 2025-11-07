@@ -44,13 +44,15 @@ paper_html <- papers %>%
     # Create HTML for each paper
     html = glue(
       '
-    <div class="paper">
-      <div class="authors">{authors}</div>
-      <div class="title">{title}</div>
-      <div class="date">Publication Date: {publication_date}</div>
-      <div class="journal"><a href="{doi}">{journal}</a></div>
-    </div>
-    '
+      <div class="paper">
+        <div class="authors">{authors}</div>
+        <div class="title">{title}</div>
+        <div class="metadata">
+          <div class="date">{publication_date}</div>
+          <div class="journal"><a href="{doi}">{journal}</a></div>
+        </div>
+      </div>
+      '
     )
   ) %>%
   pull(html) %>%
@@ -62,24 +64,150 @@ html_body <- glue(
 <!DOCTYPE html>
 <html>
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }}
-    h2 {{ color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
-    .paper {{ margin-bottom: 25px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3498db; }}
-    .authors {{ color: #7f8c8d; font-style: italic; margin-bottom: 5px; }}
-    .date {{ color: #95a5a6; font-size: 0.9em; margin-bottom: 5px; }}
-    .title {{ font-weight: bold; font-size: 1.1em; margin: 8px 0; color: #2c3e50; }}
-    .journal {{ color: #2980b9; margin-top: 5px; }}
-    .journal a {{ color: #2980b9; text-decoration: none; }}
-    .journal a:hover {{ text-decoration: underline; }}
-    .count {{ color: #27ae60; font-weight: bold; }}
+    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Oxygen", "Ubuntu", "Cantarell", sans-serif;
+      line-height: 1.6;
+      color: #24292e;
+      background-color: #f8f9fa;
+      padding: 20px;
+    }}
+    .container {{
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border: 1px solid #e1e4e8;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+    }}
+    .header {{
+      background-color: #f6f8fa;
+      padding: 24px 32px;
+      border-bottom: 2px solid #e1e4e8;
+    }}
+    .header h2 {{
+      color: #24292e;
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }}
+    .intro {{
+      padding: 24px 32px;
+      font-size: 15px;
+      color: #586069;
+      border-bottom: 1px solid #e1e4e8;
+    }}
+    .intro a {{
+      color: #0366d6;
+      text-decoration: none;
+      font-weight: 500;
+    }}
+    .intro a:hover {{
+      color: #0256b9;
+      text-decoration: underline;
+    }}
+    .count {{
+      color: #24292e;
+      font-weight: 600;
+    }}
+    .papers {{
+      padding: 16px 32px 32px 32px;
+    }}
+    .paper {{
+      margin-bottom: 24px;
+      padding: 20px;
+      background-color: #fafbfc;
+      border: 1px solid #e1e4e8;
+      border-radius: 6px;
+      transition: box-shadow 0.15s ease;
+    }}
+    .paper:hover {{
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }}
+    .paper:last-child {{
+      margin-bottom: 0;
+    }}
+    .authors {{
+      color: #586069;
+      font-size: 14px;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }}
+    .title {{
+      font-weight: 600;
+      font-size: 16px;
+      margin: 8px 0 12px 0;
+      color: #24292e;
+      line-height: 1.5;
+    }}
+    .metadata {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 14px;
+      margin-top: 8px;
+    }}
+    .date {{
+      color: #586069;
+    }}
+    .date::before {{
+      content: "📅 ";
+      margin-right: 4px;
+    }}
+    .journal {{
+      color: #0366d6;
+    }}
+    .journal::before {{
+      content: "📄 ";
+      margin-right: 4px;
+    }}
+    .journal a {{
+      color: #0366d6;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }}
+    .journal a:hover {{
+      color: #0256b9;
+      text-decoration: underline;
+    }}
+    .footer {{
+      padding: 16px 32px;
+      background-color: #f6f8fa;
+      border-top: 1px solid #e1e4e8;
+      font-size: 13px;
+      color: #586069;
+      text-align: center;
+    }}
+
+    /* Mobile responsive */
+    @media only screen and (max-width: 600px) {{
+      body {{ padding: 10px; }}
+      .header, .intro, .papers, .footer {{ padding: 16px 20px; }}
+      .paper {{ padding: 16px; }}
+      .metadata {{ flex-direction: column; gap: 8px; }}
+    }}
   </style>
 </head>
 <body>
-  <h2>New Minimum Wage Papers Detected</h2>
-  <p>The following <span class="count">{paper_count} new {paper_word}</span> {have_word} been added to the list of
-  <a href="https://benzipperer.github.io/new_mw_papers/">Recent Minimum Wage Papers</a>:</p>
-  {paper_html}
+  <div class="container">
+    <div class="header">
+      <h2>New Minimum Wage Papers Detected</h2>
+    </div>
+    <div class="intro">
+      <p>The following <span class="count">{paper_count} new {paper_word}</span> {have_word} been added to the
+      <a href="https://benzipperer.github.io/new_mw_papers/">Recent Minimum Wage Papers</a> list:</p>
+    </div>
+    <div class="papers">
+      {paper_html}
+    </div>
+    <div class="footer">
+      Automated notification from the Minimum Wage Papers tracking system
+    </div>
+  </div>
 </body>
 </html>
 '
