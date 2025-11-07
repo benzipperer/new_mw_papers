@@ -48,8 +48,8 @@ paper_html <- papers %>%
         <div class="authors">{authors}</div>
         <div class="title">{title}</div>
         <div class="metadata">
-          <div class="date">{publication_date}</div>
           <div class="journal"><a href="{doi}">{journal}</a></div>
+          <div class="date">{publication_date}</div>
         </div>
       </div>
       '
