@@ -248,6 +248,8 @@ tryCatch(
       password = smtp_password
     )
 
+    stop(print(envelope() |> to(email_bcc)))
+
     # Create email
     email <- envelope() %>%
       from(email_from) %>%
