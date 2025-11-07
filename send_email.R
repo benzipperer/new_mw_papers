@@ -130,6 +130,8 @@ tryCatch(
       email <- email %>% bcc(email_bcc)
       message("BCC is present")
     } else {
+      message(email_to)
+      message(email_bcc)
       stop("No BCC present")
     }
 
