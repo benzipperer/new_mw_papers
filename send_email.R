@@ -1,6 +1,6 @@
 library(readr)
 library(dplyr)
-library(blastula)
+library(emayili)
 library(glue)
 
 # Read the CSV file for papers to email
@@ -85,45 +85,47 @@ html_body <- glue(
 '
 )
 
-# Get email addresses from environment variables
+# Get email configuration from environment variables
 email_from <- Sys.getenv("EMAIL_FROM")
 email_to <- Sys.getenv("EMAIL_TO")
+email_bcc <- Sys.getenv("EMAIL_BCC")  # Optional BCC recipients (comma-separated)
+smtp_server <- Sys.getenv("SMTP_SERVER")
+smtp_port <- as.integer(Sys.getenv("SMTP_PORT"))
+smtp_username <- Sys.getenv("SMTP_USERNAME")
+smtp_password <- Sys.getenv("SMTP_PASSWORD")
 
 # Validate required environment variables
-if (
-  Sys.getenv("SMTP_SERVER") == "" ||
-    Sys.getenv("SMTP_USERNAME") == "" ||
-    Sys.getenv("SMTP_PASSWORD") == "" ||
-    email_from == "" ||
-    email_to == ""
-) {
+if (smtp_server == "" || smtp_username == "" || smtp_password == "" ||
+    email_from == "" || email_to == "") {
   stop("Missing required environment variables for email configuration")
 }
 
-# Create email
-email <- compose_email(body = md(html_body))
-
-# Configure SMTP credentials using environment variables
-smtp_creds <- creds_envvar(
-  user = Sys.getenv("SMTP_USERNAME"),
-  pass_envvar = "SMTP_PASSWORD",  # Pass variable name as string
-  host = Sys.getenv("SMTP_SERVER"),
-  port = as.integer(Sys.getenv("SMTP_PORT")),
-  use_ssl = TRUE
-)
-
-# Send email
+# Send email using emayili
 tryCatch(
   {
-    smtp_send(
-      email,
-      from = email_from,
-      to = email_to,
-      subject = glue(
-        "New Minimum Wage Papers: {paper_count} {paper_word} added"
-      ),
-      credentials = smtp_creds
+    # Create SMTP server connection
+    smtp <- server(
+      host = smtp_server,
+      port = smtp_port,
+      username = smtp_username,
+      password = smtp_password
     )
+
+    # Create email
+    email <- envelope() %>%
+      from(email_from) %>%
+      to(email_to) %>%
+      subject(glue("New Minimum Wage Papers: {paper_count} {paper_word} added")) %>%
+      html(html_body)
+
+    # Add BCC if specified
+    if (email_bcc != "") {
+      email <- email %>% bcc(email_bcc)
+    }
+
+    # Send email
+    smtp(email, verbose = TRUE)
+
     cat("Email sent successfully.\n")
   },
   error = function(e) {
