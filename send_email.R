@@ -104,7 +104,6 @@ if (
 ) {
   stop("Missing required environment variables for email configuration")
 }
-message("This is the email from", email_from)
 
 # Send email using emayili
 tryCatch(
@@ -129,11 +128,6 @@ tryCatch(
     # Add BCC if specified
     if (email_bcc != "") {
       email <- email %>% bcc(email_bcc)
-      message("BCC is present")
-    } else {
-      message(email_to)
-      message(email_bcc)
-      stop("No BCC present")
     }
 
     # Send email

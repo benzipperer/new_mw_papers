@@ -32,6 +32,7 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_BCC: ${{ secrets.EMAIL_BCC }}
         run: Rscript send_email.R
 
       - name: Commit updated emailed papers list
