@@ -360,9 +360,9 @@ download_nber = function(name) {
   base_url = "https://data.nber.org/nber_paper_chapter_metadata/tsv/"
   file_name = paste0(name, ".tsv")
   url = paste0(base_url, file_name)
-  temp = tempfile()
+  # temp = tempfile()
 
-  download.file(url, temp)
+  # download.file(url, temp)
 
   # deal with inconsistent quotes depending on file
   quote_option = "\""
@@ -371,12 +371,12 @@ download_nber = function(name) {
   }
 
   data = read_delim(
-    temp,
+    url,
     delim = "\t",
     quote = quote_option
   )
 
-  unlink(temp)
+  # unlink(temp)
 
   data |>
     filter(str_starts(paper, "w"))
