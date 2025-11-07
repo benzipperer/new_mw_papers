@@ -108,7 +108,8 @@ if (
 email <- compose_email(body = md(html_body))
 
 # Configure SMTP credentials
-smtp_creds <- creds(
+smtp_creds <- creds_key(
+  id = "smtp_creds",
   user = smtp_username,
   password = smtp_password,
   host = smtp_server,
