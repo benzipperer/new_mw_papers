@@ -5,6 +5,8 @@ library(purrr)
 library(tidyr)
 library(lubridate)
 library(stringr)
+library(rvest)
+library(httr)
 
 update_papers = function(new, old) {
   if (is.null(new) & is.null(old)) {
@@ -139,6 +141,221 @@ clean_oa_papers = function(data) {
   }
 }
 
+scrape_iza_paper = function(paper_url) {
+  # Add delay to be polite to the server
+  Sys.sleep(1)
+
+  tryCatch(
+    {
+      page = read_html(paper_url)
+
+      # Extract paper number from URL or page
+      paper_id = str_extract(paper_url, "dp/(\\d+)/", group = 1)
+
+      # Extract title - it's in h2 or div.title, includes paper number
+      title_raw = page |>
+        html_element("h2") |>
+        html_text2()
+
+      # Remove "IZA DP No. XXXXX: " prefix from title
+      title = str_replace(title_raw, "^IZA DP No\\.\\s+\\d+:\\s*", "")
+
+      # Extract authors - they're in a div.authors element
+      authors = page |>
+        html_element("div.authors") |>
+        html_text2() |>
+        str_replace_all(",", ";") # Convert commas to semicolons for consistency
+
+      # Extract publication date - look for text like "October 2025" or "IZA DP No. 18234"
+      # The date is typically in a span or div near the top
+      date_text = page |>
+        html_elements("p") |>
+        html_text2() |>
+        str_subset(
+          "(January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4}"
+        ) |>
+        head(1)
+
+      # Parse the date - extract month and year
+      if (length(date_text) > 0) {
+        date_parsed = str_extract(
+          date_text,
+          "(January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4}"
+        )
+        publication_date = parse_date_time(date_parsed, orders = "BY")
+      } else {
+        publication_date = NA
+      }
+
+      # Extract abstract - it's typically the second paragraph
+      all_paragraphs = page |>
+        html_elements("p") |>
+        html_text2()
+
+      # Filter for content paragraphs (usually starts with capital, has good length)
+      content_paragraphs = all_paragraphs[nchar(all_paragraphs) > 100]
+
+      # The abstract is usually the first substantial paragraph
+      if (length(content_paragraphs) > 0) {
+        abstract = content_paragraphs[1] |>
+          str_squish()
+      } else {
+        abstract = NA_character_
+      }
+
+      tibble(
+        openalex_id = paste0("iza", paper_id),
+        title = title,
+        authors = authors,
+        publication_date = as.Date(publication_date),
+        abstract = abstract,
+        journal = "IZA Discussion Paper",
+        doi = paper_url
+      )
+    },
+    error = function(e) {
+      message(paste("Error scraping", paper_url, ":", e$message))
+      NULL
+    }
+  )
+}
+
+iza_fetch = function(
+  from_publication_date,
+  to_publication_date,
+  search_query
+) {
+  # Browse all IZA discussion papers without search filter
+  # Then filter by search query afterwards (like nber_fetch)
+  base_url = "https://www.iza.org/publications/dp"
+
+  # Get paper links from multiple pages
+  # Using limit=100 and page-based pagination for most recent 200 papers
+  all_paper_links = c()
+
+  # Fetch 2 pages (100 papers per page = 200 papers total)
+  for (page_num in 1:2) {
+    search_url = paste0(base_url, "?limit=100&page=", page_num)
+
+    message(paste("Fetching IZA papers page", page_num, "..."))
+
+    tryCatch(
+      {
+        page = read_html(search_url)
+
+        # Extract all paper links
+        paper_links = page |>
+          html_elements("a[href*='/publications/dp/']") |>
+          html_attr("href") |>
+          str_subset("/publications/dp/\\d+/") |>
+          unique()
+
+        if (length(paper_links) == 0) {
+          message("No more papers found, stopping pagination.")
+          break
+        }
+
+        # Convert relative URLs to absolute (only if they start with /)
+        paper_links = ifelse(
+          str_starts(paper_links, "/"),
+          paste0("https://www.iza.org", paper_links),
+          paper_links
+        )
+        all_paper_links = c(all_paper_links, paper_links)
+
+        # Be polite - wait between page requests
+        Sys.sleep(1)
+      },
+      error = function(e) {
+        message(paste("Error fetching page", page_num, ":", e$message))
+        break
+      }
+    )
+  }
+
+  # Remove duplicates
+  all_paper_links = unique(all_paper_links)
+
+  message(paste(
+    "Found",
+    length(all_paper_links),
+    "total papers. Scraping details..."
+  ))
+
+  # Scrape each paper with early stopping and progress meter
+  papers_list = list()
+  consecutive_old_papers = 0
+  from_date = ymd(from_publication_date)
+
+  for (i in seq_along(all_paper_links)) {
+    # Progress indicator
+    if (i %% 10 == 0) {
+      message(paste("Progress:", i, "/", length(all_paper_links), "papers"))
+    }
+
+    paper = scrape_iza_paper(all_paper_links[i])
+
+    if (!is.null(paper)) {
+      papers_list[[i]] = paper
+
+      # Check if paper is before our date range
+      if (
+        !is.na(paper$publication_date) && paper$publication_date < from_date
+      ) {
+        consecutive_old_papers = consecutive_old_papers + 1
+
+        # Stop if we've found 5 consecutive papers before the date range
+        if (consecutive_old_papers >= 5) {
+          message(paste(
+            "Found 5 consecutive papers before",
+            from_publication_date,
+            "- stopping at paper",
+            i,
+            "of",
+            length(all_paper_links)
+          ))
+          break
+        }
+      } else {
+        # Reset counter if we find a paper in range
+        consecutive_old_papers = 0
+      }
+    }
+  }
+
+  # Combine and filter by date range
+  papers = papers_list |>
+    bind_rows() |>
+    filter(
+      !is.na(publication_date),
+      publication_date >= ymd(from_publication_date),
+      publication_date <= ymd(to_publication_date)
+    )
+
+  message(paste("After date filtering:", nrow(papers), "papers"))
+
+  # Apply search query filter using str_detect (like nber_fetch)
+  if (!is.null(search_query) && search_query != "") {
+    papers = papers |>
+      mutate(
+        abstract_match = str_detect(
+          str_to_lower(abstract),
+          str_to_lower(search_query)
+        ),
+        title_match = str_detect(
+          str_to_lower(title),
+          str_to_lower(search_query)
+        )
+      ) |>
+      filter(abstract_match | title_match) |>
+      select(-abstract_match, -title_match)
+  }
+
+  message(paste("Retrieved", nrow(papers), "IZA papers matching criteria"))
+
+  papers
+}
+
 download_nber = function(name) {
   base_url = "https://data.nber.org/nber_paper_chapter_metadata/tsv/"
   file_name = paste0(name, ".tsv")
@@ -147,10 +364,16 @@ download_nber = function(name) {
 
   download.file(url, temp)
 
+  # deal with inconsistent quotes depending on file
+  quote_option = "\""
+  if (name == "ref") {
+    quote_option = rawToChar(as.raw(0xAC))
+  }
+
   data = read_delim(
     temp,
     delim = "\t",
-    quote = rawToChar(as.raw(0xAC))
+    quote = quote_option
   )
 
   unlink(temp)
@@ -167,8 +390,12 @@ nber_fetch = function(
 ) {
   ref = download_nber("ref")
   abs = download_nber("abs")
+  jel = download_nber("jel") |>
+    summarize(jel_codes = paste(jel, collapse = ","), .by = paper)
 
-  data = full_join(ref, abs) |>
+  data = ref |>
+    full_join(abs, by = "paper") |>
+    full_join(jel, by = "paper") |>
     mutate(
       authors = str_replace_all(author, ",", ";"),
       journal = "NBER Working Paper",
@@ -178,11 +405,14 @@ nber_fetch = function(
       # for now this is fine
       openalex_id = paper,
       abstract_match = str_detect(str_to_lower(abstract), nber_search_query),
-      title_match = str_detect(str_to_lower(title), nber_search_query)
+      title_match = str_detect(str_to_lower(title), nber_search_query),
+      # jel_match = str_detect(jel_codes, "J")
+      jel_match = 1
     ) |>
     filter(
       publication_date >= ymd(from_publication_date),
       publication_date <= ymd(to_publication_date),
+      jel_match == 1,
       abstract_match == 1 | title_match == 1
     ) |>
     select(
@@ -192,7 +422,8 @@ nber_fetch = function(
       title,
       journal,
       doi,
-      abstract
+      abstract,
+      jel_codes
     )
 
   data
@@ -203,8 +434,8 @@ openalex_email = Sys.getenv("openalexR.mailto", "agent@example.com")
 options(openalexR.mailto = openalex_email)
 
 # Get today's date and the date one year ago
-to_date = Sys.Date()
-from_date = as.Date(to_date) - 365
+oa_to_date = Sys.Date()
+oa_from_date = as.Date(oa_to_date) - 365
 
 # Read journal ISSNs
 initial_journals = read_csv("initial_journals.csv")
@@ -220,26 +451,38 @@ search_query = paste(mw_query, lw_query, tw_query, sep = " OR ")
 papers_from_oa = oa_fetch(
   entity = "works",
   search = search_query,
-  from_publication_date = from_date,
-  to_publication_date = to_date,
+  from_publication_date = oa_from_date,
+  to_publication_date = oa_to_date,
   primary_location.source.issn = issns,
   output = "dataframe"
 ) |>
   clean_oa_papers()
 
 nber_search_query = "minimum wage|living wage|tipped_wage"
-to_date = Sys.Date()
-from_date = as.Date(to_date) - 365
+nber_to_date = Sys.Date()
+nber_from_date = as.Date(nber_to_date) - 365
 
 papers_from_nber = nber_fetch(
-  from_date,
-  to_date,
+  nber_from_date,
+  nber_to_date,
   nber_search_query
 )
 
-all_papers = papers_from_oa |>
-  bind_rows(papers_from_nber)
+# Fetch papers from IZA
+# Use regex pattern for filtering (like NBER)
+# will only search the last two months
+iza_search_query = "minimum wage|living wage|tipped wage"
+iza_to_date = Sys.Date()
+iza_from_date = as.Date(iza_to_date) - months(2)
+papers_from_iza = iza_fetch(
+  iza_from_date,
+  iza_to_date,
+  iza_search_query
+)
 
+all_papers = papers_from_oa |>
+  bind_rows(papers_from_nber) |>
+  bind_rows(papers_from_iza)
 
 # Existing data
 existing_papers = NULL
@@ -259,14 +502,6 @@ if (file.exists("emailed_papers.csv")) {
 }
 
 # Find papers that are new AND haven't been emailed yet
-truly_new_papers = combined_papers |>
-  filter(status == "new")
-
-if (is.null(emailed_papers) || nrow(emailed_papers) == 0) {
-  truly_new_papers |>
-    write_csv("min_wage_papers_to_email.csv")
-} else {
-  truly_new_papers |>
-    anti_join(emailed_papers, by = "openalex_id") |>
-    write_csv("min_wage_papers_to_email.csv")
-}
+combined_papers |>
+  anti_join(emailed_papers, by = "openalex_id") |>
+  write_csv("min_wage_papers_to_email.csv")
