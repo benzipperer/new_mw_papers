@@ -9,7 +9,7 @@ execute:
   echo: FALSE
 ---
 
-This page displays a list of recent papers mentioning minimum wages, sourced from [OpenAlex](https://openalex.org/) and [NBER](https://nber.org) over the last 12 months.
+This page displays a list of recent papers mentioning minimum wages, sourced from [OpenAlex](https://openalex.org/), [NBER](https://www.nber.org/papers), and [IZA](https://www.iza.org/publications/dp).
 
 ```{r}
 #| label: setup
