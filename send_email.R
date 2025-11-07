@@ -108,12 +108,11 @@ if (
 email <- compose_email(body = md(html_body))
 
 # Configure SMTP credentials
-smtp_creds <- creds_key(
-  id = "smtp_creds",
-  user = smtp_username,
-  password = smtp_password,
-  host = smtp_server,
-  port = smtp_port,
+smtp_creds <- creds_envvar(
+  user = Sys.getenv("SMTP_USERNAME"),
+  pass_envvar = "SMTP_PASSWORD",  # Pass variable name as string
+  host = Sys.getenv("SMTP_SERVER"),
+  port = as.integer(Sys.getenv("SMTP_PORT")),
   use_ssl = TRUE
 )
 
