@@ -237,6 +237,8 @@ if (
   stop("Missing required environment variables for email configuration")
 }
 
+stop(print(envelope() |> to(email_bcc)))
+
 # Send email using emayili
 tryCatch(
   {
@@ -247,8 +249,6 @@ tryCatch(
       username = smtp_username,
       password = smtp_password
     )
-
-    stop(print(envelope() |> to(email_bcc)))
 
     # Create email
     email <- envelope() %>%
