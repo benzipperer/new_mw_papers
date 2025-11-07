@@ -219,8 +219,7 @@ html_body <- glue(
 
 # Get email configuration from environment variables
 email_from <- Sys.getenv("EMAIL_FROM")
-email_to <- Sys.getenv("EMAIL_TO")
-email_bcc <- Sys.getenv("EMAIL_BCC") # Optional BCC recipients (comma-separated)
+email_bcc <- Sys.getenv("EMAIL_BCC") # Required: comma-separated list of recipients
 smtp_server <- Sys.getenv("SMTP_SERVER")
 smtp_port <- as.integer(Sys.getenv("SMTP_PORT"))
 smtp_username <- Sys.getenv("SMTP_USERNAME")
@@ -232,14 +231,15 @@ if (
     smtp_username == "" ||
     smtp_password == "" ||
     email_from == "" ||
-    email_to == ""
+    email_bcc == ""
 ) {
   stop("Missing required environment variables for email configuration")
 }
 
-stop(print(envelope() |> to(email_bcc)))
+# Parse BCC recipients (comma-separated)
+recipients <- trimws(strsplit(email_bcc, ",")[[1]])
 
-# Send email using emayili
+# Send individual emails to each recipient
 tryCatch(
   {
     # Create SMTP server connection
@@ -250,24 +250,26 @@ tryCatch(
       password = smtp_password
     )
 
-    # Create email
-    email <- envelope() %>%
-      from(email_from) %>%
-      to(email_to) %>%
-      subject(glue(
-        "New minimum wage papers for the week ending {week_end_date}"
-      )) %>%
-      html(html_body)
+    # Loop through each recipient and send individual email
+    for (recipient in recipients) {
+      cat(glue("Sending email to {recipient}...\n"))
 
-    # Add BCC if specified
-    if (email_bcc != "") {
-      email <- email %>% bcc(email_bcc)
+      # Create email for this recipient
+      email <- envelope() %>%
+        from(email_from) %>%
+        to(recipient) %>%
+        subject(glue(
+          "New minimum wage papers for the week ending {week_end_date}"
+        )) %>%
+        html(html_body)
+
+      # Send email
+      smtp(email, verbose = TRUE)
+
+      cat(glue("  ✓ Email sent to {recipient}\n"))
     }
 
-    # Send email
-    smtp(email, verbose = TRUE)
-
-    cat("Email sent successfully.\n")
+    cat(glue("\nSuccessfully sent {length(recipients)} email(s).\n"))
   },
   error = function(e) {
     cat("Error sending email:", conditionMessage(e), "\n")
