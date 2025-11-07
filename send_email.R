@@ -23,6 +23,9 @@ paper_count <- nrow(papers)
 paper_word <- if (paper_count == 1) "paper" else "papers"
 have_word <- if (paper_count == 1) "has" else "have"
 
+# Get today's date for email subject
+week_end_date <- format(Sys.Date(), "%B %d, %Y")
+
 cat(glue("Found {paper_count} new {paper_word}. Preparing email...\n"))
 
 # Create HTML for each paper
@@ -159,6 +162,7 @@ html_body <- glue(
     }}
     .journal {{
       color: #0366d6;
+      margin-right: 16px;
     }}
     .journal::before {{
       content: "📄 ";
@@ -249,7 +253,7 @@ tryCatch(
       from(email_from) %>%
       to(email_to) %>%
       subject(glue(
-        "New Minimum Wage Papers: {paper_count} {paper_word} added"
+        "New minimum wage papers for the week ending {week_end_date}"
       )) %>%
       html(html_body)
 
