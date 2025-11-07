@@ -104,6 +104,7 @@ if (
 ) {
   stop("Missing required environment variables for email configuration")
 }
+message("This is the email from", email_from)
 
 # Send email using emayili
 tryCatch(
