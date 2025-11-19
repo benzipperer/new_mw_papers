@@ -441,16 +441,16 @@ oa_from_date = as.Date(oa_to_date) - 365
 initial_journals = read_csv("initial_journals.csv")
 issns = initial_journals$issn
 
-mw_query = '"minimum wage" OR "minimum wages" OR "minimum wage\'s"'
-lw_query = '"living wage" OR "living wages" OR "living wage\'s"'
-tw_query = '"tipped wage" OR "tipped wages" OR "tipped wage\'s"'
+oa_mw_query = '"minimum wage" OR "minimum wages" OR "minimum wage\'s"'
+oa_lw_query = '"living wage" OR "living wages" OR "living wage\'s"'
+oa_tw_query = '"tipped wage" OR "tipped wages" OR "tipped wage\'s"'
 
-search_query = paste(mw_query, lw_query, tw_query, sep = " OR ")
+oa_search_query = paste(oa_mw_query, oa_lw_query, oa_tw_query, sep = " OR ")
 
 # Fetch data from OpenAlex
 papers_from_oa = oa_fetch(
   entity = "works",
-  search = search_query,
+  search = oa_search_query,
   from_publication_date = oa_from_date,
   to_publication_date = oa_to_date,
   primary_location.source.issn = issns,
@@ -482,7 +482,9 @@ papers_from_iza = iza_fetch(
 
 all_papers = papers_from_oa |>
   bind_rows(papers_from_nber) |>
-  bind_rows(papers_from_iza)
+  bind_rows(papers_from_iza) |>
+  # remove false positives: Issue Information
+  filter(str_to_lower(title) != "issue information")
 
 # Existing data
 existing_papers = NULL
