@@ -458,15 +458,15 @@ papers_from_oa = oa_fetch(
 ) |>
   clean_oa_papers()
 
-nber_search_query = "minimum wage|living wage|tipped_wage"
-nber_to_date = Sys.Date()
-nber_from_date = as.Date(nber_to_date) - 365
+# nber_search_query = "minimum wage|living wage|tipped_wage"
+# nber_to_date = Sys.Date()
+# nber_from_date = as.Date(nber_to_date) - 365
 
-papers_from_nber = nber_fetch(
-  nber_from_date,
-  nber_to_date,
-  nber_search_query
-)
+# papers_from_nber = nber_fetch(
+#   nber_from_date,
+#   nber_to_date,
+#   nber_search_query
+# )
 
 # Fetch papers from IZA
 # Use regex pattern for filtering (like NBER)
@@ -481,7 +481,7 @@ papers_from_iza = iza_fetch(
 )
 
 all_papers = papers_from_oa |>
-  bind_rows(papers_from_nber) |>
+  #bind_rows(papers_from_nber) |>
   bind_rows(papers_from_iza) |>
   # remove false positives: Issue Information
   filter(str_to_lower(title) != "issue information")
